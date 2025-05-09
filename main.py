@@ -180,19 +180,32 @@ def check_hand(hand):
     return 1, sorted(ranks, reverse=True) # Return rank 1 and list of card ranks as kickers
 
 
-def getBestHandFrom7(all_seven_cards):
-    if len(all_seven_cards) < 5:
+def getBestHand(available_cards):
+    if len(available_cards) < 5:
         # this really shouldn't happen
         raise ValueError("Cannot evaluate a hand with fewer than 5 cards.")
 
     best_eval = (0, []) # worst possible hand
 
     # for every combination of 5 within seven cards
-    for five_card_combo in itertools.combinations(all_seven_cards, 5):
+    for five_card_combo in itertools.combinations(available_cards, 5):
         current_eval = check_hand(list(five_card_combo))
         if current_eval > best_eval:
             best_eval = current_eval
     return best_eval
 
+# given two hands, return the player that will win as a string. bot = player1, player = player2
+def check_hands(hand1, hand2, community_cards):
+    player1_hand = hand1 + community_cards
+    player2_hand = hand2 + community_cards
 
+    player1_best = getBestHand(player1_hand)
+    player2_best = getBestHand(player2_hand)
 
+    # return who has the best hand
+    if player1_best > player2_best:
+        return "bot"
+    elif player2_best > player1_best:
+        return "player"
+    else:
+        return "tie"
