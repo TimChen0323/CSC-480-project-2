@@ -73,9 +73,9 @@ def checkStraight(hand):
     return False, 0
 
 def checkFlush(hand):
-    ranks, suits = getRanksAndSuits(hand)
+    ranks, suits = getRanksAndSuits(hand) # ranks are sorted ascending here
     if all(suit == suits[0] for suit in suits):
-        return True, ranks
+        return True, sorted(ranks, reverse=True) # Return ranks sorted descending to match with rest
     else:
         return False, []
 
@@ -85,7 +85,7 @@ def checkStraightFlush(hand):
     if isStraight and isFlush:
         return True, highest
     else:
-        return False
+        return False, 0
 
 # gets counts for every card, allowing us to check for pairs, triples, quadruples, etc
 # e.g., for KKKQQ -> [(13,3), (12,2)]
@@ -178,6 +178,21 @@ def check_hand(hand):
     # high card
     ranks, _ = getRanksAndSuits(hand)
     return 1, sorted(ranks, reverse=True) # Return rank 1 and list of card ranks as kickers
+
+
+def getBestHandFrom7(all_seven_cards):
+    if len(all_seven_cards) < 5:
+        # this really shouldn't happen
+        raise ValueError("Cannot evaluate a hand with fewer than 5 cards.")
+
+    best_eval = (0, []) # worst possible hand
+
+    # for every combination of 5 within seven cards
+    for five_card_combo in itertools.combinations(all_seven_cards, 5):
+        current_eval = check_hand(list(five_card_combo))
+        if current_eval > best_eval:
+            best_eval = current_eval
+    return best_eval
 
 
 
