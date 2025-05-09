@@ -179,7 +179,7 @@ def check_hand(hand):
     ranks, _ = getRanksAndSuits(hand)
     return 1, sorted(ranks, reverse=True) # Return rank 1 and list of card ranks as kickers
 
-
+# a function where given at least 5 cards, returns the best possible hand that can be made
 def getBestHand(available_cards):
     if len(available_cards) < 5:
         # this really shouldn't happen
