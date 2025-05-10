@@ -231,7 +231,7 @@ def checkHands(hand1, hand2, community_cards):
 
 
 # MCTS stuff
-max_children = 2048
+max_children = 2048 # limiting to 2048 since from each node there's millions of possible children.
 class MonteCarloTreeSearchNode:
     def __init__(self, state, parent=None):
         self.wins = 0
