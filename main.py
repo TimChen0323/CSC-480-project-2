@@ -229,7 +229,9 @@ def checkHands(hand1, hand2, community_cards):
     else:
         return "tie"
 
+
 # MCTS stuff
+max_children = 2048
 class MonteCarloTreeSearchNode:
     def __init__(self, state, parent=None):
         self.wins = 0
@@ -258,59 +260,48 @@ def monteCarloTreeSearch(root: MonteCarloTreeSearchNode, time_limit_seconds=9.5)
     start_time = time.time()
 
     while (time.time() - start_time) < time_limit_seconds:
-        # step 1 : selection
-        curr = root
-        while curr.children:
-            curr = curr.bestChild()
-        to_search = curr
-        # if nothing is expanded later, rollout on the terminal node
-        node_to_rollout = to_search
-        # step 2 : expansion
-        if not isShowdownState(to_search.state):
-            node_to_rollout = expand(to_search)
+        # does both expansion and selection
+        leaf = tree_policy(root)
         # step 3 : rollout
-        simulation_result = rollout(node_to_rollout)
+        simulation_result = rollout(leaf)
         # step 4 : backpropogate
-        while node_to_rollout:
-            node_to_rollout.visits += 1
-            node_to_rollout.wins += simulation_result
-            node_to_rollout = node_to_rollout.parent
+        while leaf:
+            leaf.visits += 1
+            leaf.wins += simulation_result
+            leaf = leaf.parent
     return root.wins / root.visits
 
-def expand(parent_node: MonteCarloTreeSearchNode):
-    my_cards, opp_hand, comm_cards, parent_deck = parent_node.state
-    # we're making copies so we don't mess up parent deck
-    deck_for_child_simulations = list(parent_deck)
-    random.shuffle(deck_for_child_simulations)
-    child_opp_hand_list = list(opp_hand) if opp_hand else []
-    child_comm_card_list = list(comm_cards) if comm_cards else []
+def tree_policy(node):
+    while not isShowdownState(node.state):
 
-    # else, if the state has a simulated opp hand, draw to fill up community cards
-    if len(child_comm_card_list) < 5:
+        # expansion
+        if len(node.children) < max_children:
+            return expand(node)
 
-        num_already_on_board = len(child_comm_card_list)
-        num_to_draw_this_step = 0
+        # selection
+        node = node.bestChild()
 
-        if num_already_on_board == 0: # Pre-Flop -> Deal Flop
-            num_to_draw_this_step = 3
-        elif num_already_on_board == 3: # Flop -> Deal Turn
-            num_to_draw_this_step = 1
-        elif num_already_on_board == 4: # Turn -> Deal River
-            num_to_draw_this_step = 1
-        else: # Already at River or invalid state
-            return None
-        if num_to_draw_this_step:
-            child_comm_card_list.extend(drawCards(deck_for_child_simulations, num_to_draw_this_step))
+    return node
 
-    child_state = (my_cards, child_opp_hand_list, child_comm_card_list, deck_for_child_simulations)
-    new_child = MonteCarloTreeSearchNode(child_state, parent_node)
-    parent_node.children.append(new_child)
-    return new_child
+def expand(parent):
+    my_cards, opp_hand, comm_cards, deck = parent.state
+
+    deck_copy = list(deck)
+    random.shuffle(deck_copy)
+
+    new_comm = list(comm_cards)
+    while len(new_comm) < 5:
+        new_comm.append(deck_copy.pop())
+
+    child_state = (my_cards, opp_hand, new_comm, deck_copy)
+    child = MonteCarloTreeSearchNode(child_state, parent)
+    parent.children.append(child)
+    return child
 
 # represents our terminal node
 def isShowdownState(node_state):
-    _, opp_hand, comm_cards, _ = node_state
-    return bool(opp_hand) and len(comm_cards) == 5
+    _, _, comm_cards, _ = node_state
+    return len(comm_cards) == 5
 
 def rollout(sim_node: MonteCarloTreeSearchNode):
     my_cards, opp_hand, comm_cards, parent_deck = sim_node.state
