@@ -271,6 +271,7 @@ def monteCarloTreeSearch(root: MonteCarloTreeSearchNode, time_limit_seconds=9.5)
             leaf = leaf.parent
     return root.wins / root.visits
 
+# function that does both expansion and selection
 def tree_policy(node):
     while not isShowdownState(node.state):
 
@@ -283,6 +284,7 @@ def tree_policy(node):
 
     return node
 
+# actually does the expanding from tree policy
 def expand(parent):
     my_cards, opp_hand, comm_cards, deck = parent.state
 
@@ -303,6 +305,7 @@ def isShowdownState(node_state):
     _, _, comm_cards, _ = node_state
     return len(comm_cards) == 5
 
+# random rollout
 def rollout(sim_node: MonteCarloTreeSearchNode):
     my_cards, opp_hand, comm_cards, parent_deck = sim_node.state
 
@@ -312,13 +315,13 @@ def rollout(sim_node: MonteCarloTreeSearchNode):
     sim_opp = list(opp_hand) if opp_hand else []
     sim_comm = list(comm_cards) if comm_cards else []
 
-    # 1. Make sure opponent has 2 cards
+    # Make sure opponent has 2 cards
     if len(sim_opp) < 2:
         needed = 2 - len(sim_opp)
         drawn_for_opp = drawCards(sim_deck, needed)
         sim_opp.extend(drawn_for_opp)
 
-    # 2. Ensure 5 community cards
+    # Ensure 5 community cards
     if len(sim_comm) < 5:
         needed = 5 - len(sim_comm)
         # Determine how many to draw for flop, turn, river based on current count
@@ -333,6 +336,7 @@ def rollout(sim_node: MonteCarloTreeSearchNode):
     else:
         return 0
 
+# does the simulation stuff
 def playPoker():
     # pre-flop
     deck = createShuffledDeck()
@@ -350,6 +354,7 @@ def playPoker():
         return "folded in preflop"
 
     print("proceeding to flop stage")
+
     # flop
     community_cards = drawCards(mcts_deck_initial, 3)
     mcts_deck_flop = list(mcts_deck_initial)
@@ -364,6 +369,7 @@ def playPoker():
         return "folded in flop"
 
     print("proceeding to turn stage")
+
     # turn
     community_cards.extend(drawCards(mcts_deck_initial, 1))
     mcts_deck_turn = list(mcts_deck_initial)
