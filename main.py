@@ -18,9 +18,9 @@ def createShuffledDeck():
 
     return deck
 
-# debug function, maybe delete later
-def printDeck(deck):
-    for val, suit in deck:
+# prints cards
+def printCards(cards):
+    for val, suit in cards:
         print('The %s of %s' % (val, suit))
 
 
@@ -101,7 +101,7 @@ def checkStraightFlush(hand):
 # gets counts for every card, allowing us to check for pairs, triples, quadruples, etc
 # e.g., for KKKQQ -> [(13,3), (12,2)]
 # e.g., for AAAKQ -> [(14,3), (13,1), (12,1)]
-def get_rank_counts(hand):
+def getRankCounts(hand):
     ranks_int = [int(card[0]) for card in hand]
     counts = Counter(ranks_int)
 
@@ -110,7 +110,7 @@ def get_rank_counts(hand):
 
 
 def checkFourOfAKind(hand):
-    counts = get_rank_counts(hand)
+    counts = getRankCounts(hand)
     if counts[0][1] == 4:
         # (True, rank_of_quad, kicker)
         return True, counts[0][0], counts[1][0]
@@ -119,7 +119,7 @@ def checkFourOfAKind(hand):
 
 
 def checkFullHouse(hand):
-    counts = get_rank_counts(hand)
+    counts = getRankCounts(hand)
     if counts[0][1] == 3 and counts[1][1] == 2:
         # (True, rank_of_triple, rank_of_pair)
         return True, counts[0][0], counts[1][0]
@@ -128,7 +128,7 @@ def checkFullHouse(hand):
 
 
 def checkThreeOfAKind(hand):
-    counts = get_rank_counts(hand)
+    counts = getRankCounts(hand)
     if counts[0][1] == 3:
         # (True, rank_of_triple, kicker1, kicker2)
         return True, counts[0][0], [counts[1][0], counts[2][0]]
@@ -137,7 +137,7 @@ def checkThreeOfAKind(hand):
 
 
 def checkTwoPair(hand):
-    counts = get_rank_counts(hand)
+    counts = getRankCounts(hand)
     if counts[0][1] == 2 and counts[1][1] == 2:
         # (True, rank_of_pair, rank_of_pair2, kicker)
         return True, [counts[0][0], counts[1][0]], counts[2][0]
@@ -146,7 +146,7 @@ def checkTwoPair(hand):
 
 
 def checkOnePair(hand):
-    counts = get_rank_counts(hand)
+    counts = getRankCounts(hand)
     if counts[0][1] == 2:
         # (True, rank_of_pair, kicker1, kicker2, kicker3)
         return True, counts[0][0], [counts[1][0], counts[2][0], counts[3][0]]
@@ -155,7 +155,7 @@ def checkOnePair(hand):
 
 
 # function that checks hands in order from highest value to lowest
-def check_hand(hand):
+def checkHand(hand):
     isRF = checkRoyalFlush(hand)
     if isRF:
         return 10, []
@@ -207,14 +207,14 @@ def getBestHand(available_cards):
 
     # for every combination of 5 within seven cards
     for five_card_combo in itertools.combinations(available_cards, 5):
-        current_eval = check_hand(list(five_card_combo))
+        current_eval = checkHand(list(five_card_combo))
         if current_eval > best_eval:
             best_eval = current_eval
     return best_eval
 
 
 # given two hands, return the player that will win as a string. bot = player1, player = player2
-def check_hands(hand1, hand2, community_cards):
+def checkHands(hand1, hand2, community_cards):
     player1_hand = hand1 + community_cards
     player2_hand = hand2 + community_cards
 
@@ -239,7 +239,7 @@ class MonteCarloTreeSearchNode:
         # state consists of (bot hand [], opp hand [], known community cards [], deck with known cards subtracted [])
         self.state = state
 
-    def best_child(self, c_param=1.41):
+    def bestChild(self, c_param=1.41):
         best_score = -float('inf')
         best_child = None
         for child in self.children:
@@ -254,19 +254,19 @@ class MonteCarloTreeSearchNode:
                 best_child = child
         return best_child
 
-def monte_carlo_tree_search(root: MonteCarloTreeSearchNode, time_limit_seconds=9.5):
+def monteCarloTreeSearch(root: MonteCarloTreeSearchNode, time_limit_seconds=9.5):
     start_time = time.time()
 
     while (time.time() - start_time) < time_limit_seconds:
         # step 1 : selection
         curr = root
         while curr.children:
-            curr = curr.best_child()
+            curr = curr.bestChild()
         to_search = curr
         # if nothing is expanded later, rollout on the terminal node
         node_to_rollout = to_search
         # step 2 : expansion
-        if not is_showdown_state(to_search.state):
+        if not isShowdownState(to_search.state):
             node_to_rollout = expand(to_search)
         # step 3 : rollout
         simulation_result = rollout(node_to_rollout)
@@ -310,7 +310,7 @@ def expand(parent_node: MonteCarloTreeSearchNode):
     return new_child
 
 # represents our terminal node
-def is_showdown_state(node_state):
+def isShowdownState(node_state):
     _, opp_hand, comm_cards, _ = node_state
     return bool(opp_hand) and len(comm_cards) == 5
 
@@ -336,10 +336,98 @@ def rollout(sim_node: MonteCarloTreeSearchNode):
         drawn_for_comm = drawCards(sim_deck, needed)
         sim_comm.extend(drawn_for_comm)
 
-    winner = check_hands(my_cards, sim_opp, sim_comm)
+    winner = checkHands(my_cards, sim_opp, sim_comm)
     if winner == "bot":
         return 1
     else:
         return 0
 
+def playPoker():
+    # pre-flop
+    deck = createShuffledDeck()
+    player1_hand = drawCards(deck, 2)
+    player2_hand = drawCards(deck, 2)
+    # state consists of (bot hand [], opp hand [], known community cards [], deck with known cards subtracted [])
+    mcts_deck_initial = list(deck)
+    pre_flop_node = MonteCarloTreeSearchNode((player1_hand, [], [], mcts_deck_initial))
+    if monteCarloTreeSearch(pre_flop_node) < 0.5:
+        print("player1 hand (bot)")
+        printCards(player1_hand)
+        print("player2 hand")
+        printCards(player2_hand)
+        return "folded in preflop"
+
+    print("proceeding to flop stage")
+    # flop
+    community_cards = drawCards(deck, 3)
+    mcts_deck_flop = list(deck)
+    flop_node = MonteCarloTreeSearchNode((player1_hand, [], community_cards, mcts_deck_flop))
+    if monteCarloTreeSearch(flop_node) < 0.5:
+        print("player1 hand (bot)")
+        printCards(player1_hand)
+        print("player2 hand")
+        printCards(player2_hand)
+        print("community cards")
+        printCards(community_cards)
+        return "folded in flop"
+
+    print("proceeding to turn stage")
+    # turn
+    community_cards.extend(drawCards(deck, 1))
+    mcts_deck_turn = list(deck)
+    turn_node = MonteCarloTreeSearchNode((player1_hand, [], community_cards, mcts_deck_turn))
+    if monteCarloTreeSearch(turn_node) < 0.5:
+        print("player1 hand (bot)")
+        printCards(player1_hand)
+        print("player2 hand")
+        printCards(player2_hand)
+        print("community cards")
+        printCards(community_cards)
+        return "folded in turn"
+
+    print("proceeding to river stage")
+    # river
+    community_cards.extend(drawCards(deck, 1))
+    mcts_deck_river = list(deck)
+    river_node = MonteCarloTreeSearchNode((player1_hand, [], community_cards, mcts_deck_river))
+    if monteCarloTreeSearch(river_node) < 0.5:
+        print("player1 hand (bot)")
+        printCards(player1_hand)
+        print("player2 hand")
+        printCards(player2_hand)
+        print("community cards")
+        printCards(community_cards)
+        return "folded in river"
+
+    # see who wins
+    print("showdown!")
+    result = checkHands(player1_hand, player2_hand, community_cards)
+    if result == "bot":
+        print("player1 hand (bot)")
+        printCards(player1_hand)
+        print("player2 hand")
+        printCards(player2_hand)
+        print("community cards")
+        printCards(community_cards)
+        return "bot won"
+    elif result == "player":
+        print("player1 hand (bot)")
+        printCards(player1_hand)
+        print("player2 hand")
+        printCards(player2_hand)
+        print("community cards")
+        printCards(community_cards)
+        return "player won"
+    else:
+        print("player1 hand (bot)")
+        printCards(player1_hand)
+        print("player2 hand")
+        printCards(player2_hand)
+        print("community cards")
+        printCards(community_cards)
+        return "tie"
+
+if __name__ == '__main__':
+    result = playPoker()
+    print(result)
 
