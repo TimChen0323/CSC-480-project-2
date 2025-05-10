@@ -1,6 +1,8 @@
 import itertools
 import random
 from collections import Counter
+import math
+import time
 
 # the actual texas holdem game code
 def createShuffledDeck():
@@ -16,9 +18,11 @@ def createShuffledDeck():
 
     return deck
 
+# debug function, maybe delete later
 def printDeck(deck):
     for val, suit in deck:
         print('The %s of %s' % (val, suit))
+
 
 # the function to draw cards from the deck
 def drawCards(deck, num):
@@ -31,12 +35,14 @@ def drawCards(deck, num):
         i = i + 1
     return cards
 
+
 # function to deal cards to both players, setup community cards
 def gameSetup(deck):
     player1_hand = drawCards(deck, 2)
     player2_hand = drawCards(deck, 2)
     community_cards = drawCards(deck, 5)
     return player1_hand, player2_hand, community_cards
+
 
 # a bunch of functions to check specific hands
 
@@ -46,6 +52,7 @@ def getRanksAndSuits(hand_of_5_cards):
     suits = [card[1] for card in hand_of_5_cards]
     return ranks, suits
 
+
 def checkRoyalFlush(hand):
     ranks, suits = getRanksAndSuits(hand)
     # checking that all suits are equal, and it is 10 to Ace
@@ -54,11 +61,12 @@ def checkRoyalFlush(hand):
     else:
         return False
 
+
 def checkStraight(hand):
     ranks, suits = getRanksAndSuits(hand)
     is_normal_straight = True
     for i in range(4):
-        if ranks[i] + 1 != ranks[i+1]:
+        if ranks[i] + 1 != ranks[i + 1]:
             is_normal_straight = False
             break
     # if it is a straight that doesn't involve a low ace, return true
@@ -66,18 +74,20 @@ def checkStraight(hand):
         return True, ranks[4]
 
     # check for a low ace
-    if ranks == [2,3,4,5,14]:
+    if ranks == [2, 3, 4, 5, 14]:
         return True, 5
 
     # if not, then false
     return False, 0
 
+
 def checkFlush(hand):
-    ranks, suits = getRanksAndSuits(hand) # ranks are sorted ascending here
+    ranks, suits = getRanksAndSuits(hand)  # ranks are sorted ascending here
     if all(suit == suits[0] for suit in suits):
-        return True, sorted(ranks, reverse=True) # Return ranks sorted descending to match with rest
+        return True, sorted(ranks, reverse=True)  # Return ranks sorted descending to match with rest
     else:
         return False, []
+
 
 def checkStraightFlush(hand):
     isFlush = checkFlush(hand)[0]
@@ -86,6 +96,7 @@ def checkStraightFlush(hand):
         return True, highest
     else:
         return False, 0
+
 
 # gets counts for every card, allowing us to check for pairs, triples, quadruples, etc
 # e.g., for KKKQQ -> [(13,3), (12,2)]
@@ -97,6 +108,7 @@ def get_rank_counts(hand):
     sorted_rank_counts = sorted(counts.items(), key=lambda x: (x[1], x[0]), reverse=True)
     return sorted_rank_counts
 
+
 def checkFourOfAKind(hand):
     counts = get_rank_counts(hand)
     if counts[0][1] == 4:
@@ -104,6 +116,7 @@ def checkFourOfAKind(hand):
         return True, counts[0][0], counts[1][0]
     else:
         return False, 0, 0
+
 
 def checkFullHouse(hand):
     counts = get_rank_counts(hand)
@@ -113,6 +126,7 @@ def checkFullHouse(hand):
     else:
         return False, 0, 0
 
+
 def checkThreeOfAKind(hand):
     counts = get_rank_counts(hand)
     if counts[0][1] == 3:
@@ -120,6 +134,7 @@ def checkThreeOfAKind(hand):
         return True, counts[0][0], [counts[1][0], counts[2][0]]
     else:
         return False, 0, [0, 0]
+
 
 def checkTwoPair(hand):
     counts = get_rank_counts(hand)
@@ -129,6 +144,7 @@ def checkTwoPair(hand):
     else:
         return False, [0, 0], 0
 
+
 def checkOnePair(hand):
     counts = get_rank_counts(hand)
     if counts[0][1] == 2:
@@ -136,6 +152,7 @@ def checkOnePair(hand):
         return True, counts[0][0], [counts[1][0], counts[2][0], counts[3][0]]
     else:
         return False, 0, [0, 0, 0]
+
 
 # function that checks hands in order from highest value to lowest
 def check_hand(hand):
@@ -177,7 +194,8 @@ def check_hand(hand):
 
     # high card
     ranks, _ = getRanksAndSuits(hand)
-    return 1, sorted(ranks, reverse=True) # Return rank 1 and list of card ranks as kickers
+    return 1, sorted(ranks, reverse=True)  # Return rank 1 and list of card ranks as kickers
+
 
 # a function where given at least 5 cards, returns the best possible hand that can be made
 def getBestHand(available_cards):
@@ -185,7 +203,7 @@ def getBestHand(available_cards):
         # this really shouldn't happen
         raise ValueError("Cannot evaluate a hand with fewer than 5 cards.")
 
-    best_eval = (0, []) # worst possible hand
+    best_eval = (0, [])  # worst possible hand
 
     # for every combination of 5 within seven cards
     for five_card_combo in itertools.combinations(available_cards, 5):
@@ -193,6 +211,7 @@ def getBestHand(available_cards):
         if current_eval > best_eval:
             best_eval = current_eval
     return best_eval
+
 
 # given two hands, return the player that will win as a string. bot = player1, player = player2
 def check_hands(hand1, hand2, community_cards):
@@ -202,10 +221,91 @@ def check_hands(hand1, hand2, community_cards):
     player1_best = getBestHand(player1_hand)
     player2_best = getBestHand(player2_hand)
 
-    # return who has the best hand
+    # return who has the best hand by directly comparing tuples
     if player1_best > player2_best:
         return "bot"
     elif player2_best > player1_best:
         return "player"
     else:
         return "tie"
+
+# MCTS stuff
+class MonteCarloTreeSearchNode:
+    def __init__(self, state, parent=None):
+        self.wins = 0
+        self.visits = 0
+        self.children = []
+        self.parent = parent
+        # state consists of (bot hand [], opp hand [], known community cards [], deck with known cards subtracted [])
+        self.state = state
+
+    def best_child(self, c_param=1.41):
+        best_score = -float('inf')
+        best_child = None
+        for child in self.children:
+            if child.visits == 0:
+                # by making unvisited children have infinite score, they get prioritized since inf will always be >
+                score = float('inf')
+            else:
+                # ucb1 score
+                score = (child.wins / child.visits) + c_param * math.sqrt((2 * math.log(self.visits) / child.visits))
+            if score > best_score:
+                best_score = score
+                best_child = child
+        return best_child
+
+def monte_carlo_tree_search(root: MonteCarloTreeSearchNode, time_limit_seconds=10):
+    start_time = time.time() # Or use an iteration counter
+
+    while (time.time() - start_time) < time_limit_seconds:
+        # step 1 : selection
+        curr = root
+        while curr.children:
+            curr = curr.best_child()
+        to_search = curr
+        # step 2 : expansion
+        if to_search is not terminal:
+            leaf = expand(to_search)
+        # step 3 : rollout
+        simulation_result = rollout(leaf)
+        # step 4 : backpropogate
+        while leaf:
+            leaf.visits += 1
+            leaf.wins += simulation_result
+            leaf = leaf.parent
+    return root.wins / root.visits
+def expand(parent_node: MonteCarloTreeSearchNode):
+    my_cards, opp_hand, comm_cards, parent_deck = parent_node.state
+    # we're making copies so we don't mess up parent deck
+    deck_for_child_simulations = list(parent_deck)
+    child_opp_hand_list = list(opp_hand) if opp_hand else []
+    child_comm_card_list = list(comm_cards) if comm_cards else []
+
+    # if opponent's hand (simulated) is unknown
+    if not child_opp_hand_list:
+        child_opp_hand_list = drawCards(deck_for_child_simulations, 2)
+
+    # else, if the state has a simulated opp hand, draw to fill up community cards
+    elif len(child_comm_card_list) < 5:
+
+        num_already_on_board = len(child_comm_card_list)
+        num_to_draw_this_step = 0
+
+        if num_already_on_board == 0: # Pre-Flop -> Deal Flop
+            num_to_draw_this_step = 3
+        elif num_already_on_board == 3: # Flop -> Deal Turn
+            num_to_draw_this_step = 1
+        elif num_already_on_board == 4: # Turn -> Deal River
+            num_to_draw_this_step = 1
+        else: # Already at River or invalid state
+            return None
+        if num_to_draw_this_step:
+            child_comm_card_list.extend(drawCards(deck_for_child_simulations, num_to_draw_this_step))
+
+    child_state = (my_cards, child_opp_hand_list, child_comm_card_list, deck_for_child_simulations)
+    new_child = MonteCarloTreeSearchNode(child_state, parent_node)
+    parent_node.children.append(new_child)
+    return new_child
+
+
+
