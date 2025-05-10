@@ -131,7 +131,7 @@ def checkThreeOfAKind(hand):
     counts = getRankCounts(hand)
     if counts[0][1] == 3:
         # (True, rank_of_triple, kicker1, kicker2)
-        return True, counts[0][0], [counts[1][0], counts[2][0]]
+        return True, counts[0][0], sorted([counts[1][0], counts[2][0]], reverse=True)
     else:
         return False, 0, [0, 0]
 
@@ -149,7 +149,7 @@ def checkOnePair(hand):
     counts = getRankCounts(hand)
     if counts[0][1] == 2:
         # (True, rank_of_pair, kicker1, kicker2, kicker3)
-        return True, counts[0][0], [counts[1][0], counts[2][0], counts[3][0]]
+        return True, counts[0][0], sorted([counts[1][0], counts[2][0], counts[3][0]], reverse=True)
     else:
         return False, 0, [0, 0, 0]
 
@@ -276,19 +276,17 @@ def monteCarloTreeSearch(root: MonteCarloTreeSearchNode, time_limit_seconds=9.5)
             node_to_rollout.wins += simulation_result
             node_to_rollout = node_to_rollout.parent
     return root.wins / root.visits
+
 def expand(parent_node: MonteCarloTreeSearchNode):
     my_cards, opp_hand, comm_cards, parent_deck = parent_node.state
     # we're making copies so we don't mess up parent deck
     deck_for_child_simulations = list(parent_deck)
+    random.shuffle(deck_for_child_simulations)
     child_opp_hand_list = list(opp_hand) if opp_hand else []
     child_comm_card_list = list(comm_cards) if comm_cards else []
 
-    # if opponent's hand (simulated) is unknown
-    if not child_opp_hand_list:
-        child_opp_hand_list = drawCards(deck_for_child_simulations, 2)
-
     # else, if the state has a simulated opp hand, draw to fill up community cards
-    elif len(child_comm_card_list) < 5:
+    if len(child_comm_card_list) < 5:
 
         num_already_on_board = len(child_comm_card_list)
         num_to_draw_this_step = 0
@@ -319,6 +317,7 @@ def rollout(sim_node: MonteCarloTreeSearchNode):
 
     # we're making copies so we don't mess up parent deck
     sim_deck = list(parent_deck)
+    random.shuffle(sim_deck)
     sim_opp = list(opp_hand) if opp_hand else []
     sim_comm = list(comm_cards) if comm_cards else []
 
@@ -332,13 +331,14 @@ def rollout(sim_node: MonteCarloTreeSearchNode):
     if len(sim_comm) < 5:
         needed = 5 - len(sim_comm)
         # Determine how many to draw for flop, turn, river based on current count
-        # This logic is simpler if we just fill to 5
         drawn_for_comm = drawCards(sim_deck, needed)
         sim_comm.extend(drawn_for_comm)
 
     winner = checkHands(my_cards, sim_opp, sim_comm)
     if winner == "bot":
         return 1
+    elif winner == "tie":
+        return 0.5
     else:
         return 0
 
