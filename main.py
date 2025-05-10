@@ -337,9 +337,10 @@ def playPoker():
     # pre-flop
     deck = createShuffledDeck()
     player1_hand = drawCards(deck, 2)
+    mcts_deck_initial = list(deck)
     player2_hand = drawCards(deck, 2)
     # state consists of (bot hand [], opp hand [], known community cards [], deck with known cards subtracted [])
-    mcts_deck_initial = list(deck)
+
     pre_flop_node = MonteCarloTreeSearchNode((player1_hand, [], [], mcts_deck_initial))
     if monteCarloTreeSearch(pre_flop_node) < 0.5:
         print("player1 hand (bot)")
@@ -350,8 +351,8 @@ def playPoker():
 
     print("proceeding to flop stage")
     # flop
-    community_cards = drawCards(deck, 3)
-    mcts_deck_flop = list(deck)
+    community_cards = drawCards(mcts_deck_initial, 3)
+    mcts_deck_flop = list(mcts_deck_initial)
     flop_node = MonteCarloTreeSearchNode((player1_hand, [], community_cards, mcts_deck_flop))
     if monteCarloTreeSearch(flop_node) < 0.5:
         print("player1 hand (bot)")
@@ -364,8 +365,8 @@ def playPoker():
 
     print("proceeding to turn stage")
     # turn
-    community_cards.extend(drawCards(deck, 1))
-    mcts_deck_turn = list(deck)
+    community_cards.extend(drawCards(mcts_deck_initial, 1))
+    mcts_deck_turn = list(mcts_deck_initial)
     turn_node = MonteCarloTreeSearchNode((player1_hand, [], community_cards, mcts_deck_turn))
     if monteCarloTreeSearch(turn_node) < 0.5:
         print("player1 hand (bot)")
@@ -378,8 +379,8 @@ def playPoker():
 
     print("proceeding to river stage")
     # river
-    community_cards.extend(drawCards(deck, 1))
-    mcts_deck_river = list(deck)
+    community_cards.extend(drawCards(mcts_deck_initial, 1))
+    mcts_deck_river = list(mcts_deck_initial)
     river_node = MonteCarloTreeSearchNode((player1_hand, [], community_cards, mcts_deck_river))
     if monteCarloTreeSearch(river_node) < 0.5:
         print("player1 hand (bot)")
