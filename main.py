@@ -254,8 +254,8 @@ class MonteCarloTreeSearchNode:
                 best_child = child
         return best_child
 
-def monte_carlo_tree_search(root: MonteCarloTreeSearchNode, time_limit_seconds=10):
-    start_time = time.time() # Or use an iteration counter
+def monte_carlo_tree_search(root: MonteCarloTreeSearchNode, time_limit_seconds=9.5):
+    start_time = time.time()
 
     while (time.time() - start_time) < time_limit_seconds:
         # step 1 : selection
@@ -263,16 +263,18 @@ def monte_carlo_tree_search(root: MonteCarloTreeSearchNode, time_limit_seconds=1
         while curr.children:
             curr = curr.best_child()
         to_search = curr
+        # if nothing is expanded later, rollout on the terminal node
+        node_to_rollout = to_search
         # step 2 : expansion
-        if to_search is not terminal:
-            leaf = expand(to_search)
+        if not is_showdown_state(to_search.state):
+            node_to_rollout = expand(to_search)
         # step 3 : rollout
-        simulation_result = rollout(leaf)
+        simulation_result = rollout(node_to_rollout)
         # step 4 : backpropogate
-        while leaf:
-            leaf.visits += 1
-            leaf.wins += simulation_result
-            leaf = leaf.parent
+        while node_to_rollout:
+            node_to_rollout.visits += 1
+            node_to_rollout.wins += simulation_result
+            node_to_rollout = node_to_rollout.parent
     return root.wins / root.visits
 def expand(parent_node: MonteCarloTreeSearchNode):
     my_cards, opp_hand, comm_cards, parent_deck = parent_node.state
@@ -307,5 +309,37 @@ def expand(parent_node: MonteCarloTreeSearchNode):
     parent_node.children.append(new_child)
     return new_child
 
+# represents our terminal node
+def is_showdown_state(node_state):
+    _, opp_hand, comm_cards, _ = node_state
+    return bool(opp_hand) and len(comm_cards) == 5
+
+def rollout(sim_node: MonteCarloTreeSearchNode):
+    my_cards, opp_hand, comm_cards, parent_deck = sim_node.state
+
+    # we're making copies so we don't mess up parent deck
+    sim_deck = list(parent_deck)
+    sim_opp = list(opp_hand) if opp_hand else []
+    sim_comm = list(comm_cards) if comm_cards else []
+
+    # 1. Make sure opponent has 2 cards
+    if len(sim_opp) < 2:
+        needed = 2 - len(sim_opp)
+        drawn_for_opp = drawCards(sim_deck, needed)
+        sim_opp.extend(drawn_for_opp)
+
+    # 2. Ensure 5 community cards
+    if len(sim_comm) < 5:
+        needed = 5 - len(sim_comm)
+        # Determine how many to draw for flop, turn, river based on current count
+        # This logic is simpler if we just fill to 5
+        drawn_for_comm = drawCards(sim_deck, needed)
+        sim_comm.extend(drawn_for_comm)
+
+    winner = check_hands(my_cards, sim_opp, sim_comm)
+    if winner == "bot":
+        return 1
+    else:
+        return 0
 
 
